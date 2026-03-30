@@ -46,7 +46,9 @@ const Base64 = struct {
                 // NOTE: 굳이 마스킹을 해야 하나?
                 // TODO: 마스킹 하는 게 더 속 편하긴 할 것 같다. 이게 작동하는지 확인한 다음 적용해보자
                 const first = source[0] >> 2;
-                const second = (source[0] & 0b00000011) << 6;
+                const second = (source[0] & 0b00000011) << 4;
+                std.debug.print("first: {any}\n", .{first});
+                std.debug.print("second: {any}\n", .{second});
 
                 const first_char = self.charAt(first);
                 const second_char = self.charAt(second);
@@ -56,8 +58,8 @@ const Base64 = struct {
             },
             2 => {
                 const first = source[0] >> 2;
-                const second = ((source[0] & 0b00000011) << 6) + (source[1] >> 4);
-                const third = (source[1] & 0b00001111) << 4;
+                const second = ((source[0] & 0b00000011) << 4) + (source[1] >> 4);
+                const third = (source[1] & 0b00001111) << 2;
 
                 const first_char = self.charAt(first);
                 const second_char = self.charAt(second);
@@ -96,8 +98,9 @@ const Base64 = struct {
         while (group_index < group_length) {
             std.debug.print("inside encode while loop, encoded: {any}\n", .{encoded});
             // TODO: how can I fix it to length 3 array
-            const group_slice = source[group_index * 3 .. group_index * 3 + 3];
+            const group_slice = if ((group_index * 3 + 3) > source.len) source[group_index * 3 ..] else source[group_index * 3 .. group_index * 3 + 3];
             const group_encoded = self.encode3Byptes(group_slice);
+            std.debug.print("inside encode while loop, group_slice: {any}\n", .{group_slice});
             std.debug.print("inside encode while loop, group_encoded_any: {any}\n", .{group_encoded});
             std.debug.print("inside encode while loop, group_encoded_string: {s}\n", .{group_encoded});
             std.debug.print("inside encode while loop, group_encoded length: {any}\n", .{group_encoded.len});
@@ -119,7 +122,7 @@ pub fn main() !void {
     const base64 = Base64.init();
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
     const allocator = gpa.allocator();
-    const some_string = "abc";
+    const some_string = "ab";
     const encoded = try base64.encode(allocator, some_string);
     defer allocator.free(encoded);
     std.debug.print("encoded_any: {any}\n", .{encoded});
