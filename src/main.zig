@@ -38,9 +38,28 @@ const Base64 = struct {
         return self.table[index];
     }
 
+    pub fn indexOf(self: Base64, char: u8) u8 {
+        const index: usize = 0;
+        if (char == '=') {
+            return 64;
+        }
+        while (true) {
+            if (self.table[index] == char) {
+                return index;
+            }
+            index += 1;
+
+            if (index >= 64) {
+                @panic("could not find index from base64 table");
+            }
+        }
+        return index;
+    }
+
     // NOTE: need to take heap pointer
     // NOTE: need to return heap pointer
-    pub fn encode3Byptes(self: Base64, source: []const u8) [4]u8 {
+    // TODO: how can I force length of 3 ???? <<<<<
+    fn encode3Byptes(self: Base64, source: []const u8) [4]u8 {
         switch (source.len) {
             1 => {
                 // NOTE: 굳이 마스킹을 해야 하나?
@@ -115,7 +134,45 @@ const Base64 = struct {
         return encoded;
     }
 
-    // pub fn decode(self: Base64, allocator: std.mem.Allocator) []u8 {}
+    // TODO: how can I force length of 3 ???? <<<<<
+    fn decode4Chars(_: Base64, source: []const u8) [3]u8 {
+        var valid_source_length = source.len;
+        while (valid_source_length > 0) {
+            if (source[valid_source_length - 1] != '=') {
+                break;
+            }
+            valid_source_length -= 1;
+        }
+
+        // NOTE: 빠뜨린 것
+        // A -> index -> binary -> switch
+
+        switch (valid_source_length) {
+            2 => {
+                const first = (source[0] << 2) + (source[1] >> 4);
+                return [3]u8{first};
+            },
+            3 => {
+                const first = (source[0] << 2) + (source[1] >> 4);
+                const second = ((source[1] & 0b00001111) << 4) + (source[2] >> 2);
+                return [3]u8{ first, second };
+            },
+            4 => {
+                const first = (source[0] << 2) + (source[1] >> 4);
+                const second = ((source[1] & 0b00001111) << 4) + (source[2] >> 2);
+                const third = ((source[2] & 0b00000011) << 6) + source[3];
+                return [3]u8{ first, second, third };
+            },
+            else => @panic("not supported valid source length"),
+        }
+
+        // const first_index = self.table.
+    }
+
+    pub fn decode(self: Base64, allocator: std.mem.Allocator, source: []const u8) ![]u8 {
+        const group_length = try std.math.divCeil(usize, source.len, 4);
+        // const decoded_char_count = self.encode
+    }
 };
 
 pub fn main() !void {
