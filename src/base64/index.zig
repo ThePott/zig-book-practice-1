@@ -74,8 +74,6 @@ pub const Base64 = struct {
                 // TODO: 마스킹 하는 게 더 속 편하긴 할 것 같다. 이게 작동하는지 확인한 다음 적용해보자
                 const first = source[0] >> 2;
                 const second = (source[0] & 0b00000011) << 4;
-                std.debug.print("first: {any}\n", .{first});
-                std.debug.print("second: {any}\n", .{second});
 
                 const first_char = self.charAt(first);
                 const second_char = self.charAt(second);
@@ -117,28 +115,18 @@ pub const Base64 = struct {
         const encoded_char_count = try countBase64EncodedChars(source);
         var encoded = try allocator.alloc(u8, encoded_char_count);
         @memset(encoded, 0);
-        std.debug.print("group_length: {any}\n", .{group_length});
-        std.debug.print("encoded_char_count: {any}\n", .{encoded_char_count});
-        std.debug.print("encoded initialized: {any}\n", .{encoded});
 
         var group_index: usize = 0;
         while (group_index < group_length) {
-            std.debug.print("inside encode while loop, encoded: {any}\n", .{encoded});
             // TODO: how can I fix it to length 3 array
             const group_slice = if ((group_index * 3 + 3) > source.len) source[group_index * 3 ..] else source[group_index * 3 .. group_index * 3 + 3];
             const group_encoded = self.encode3Byptes(group_slice);
-            std.debug.print("inside encode while loop, group_slice: {any}\n", .{group_slice});
-            std.debug.print("inside encode while loop, group_encoded_any: {any}\n", .{group_encoded});
-            std.debug.print("inside encode while loop, group_encoded_string: {s}\n", .{group_encoded});
-            std.debug.print("inside encode while loop, group_encoded length: {any}\n", .{group_encoded.len});
 
             // NOTE: 3 바이트 당 네 글자가 된다
             @memcpy(encoded[group_index * 4 .. group_index * 4 + group_encoded.len], group_encoded[0..]);
-            std.debug.print("end of while loop cycle, encoded: {any}\n", .{encoded});
             group_index += 1;
         }
 
-        std.debug.print("end of while loop, encoded: {any}\n", .{encoded});
         return encoded;
     }
 
@@ -195,15 +183,9 @@ pub const Base64 = struct {
         const group_length = try std.math.divCeil(usize, source.len, 4);
         var group_index: usize = 0;
         while (group_index < group_length) {
-            std.debug.print("decoded: {any}\n", .{decoded});
-            std.debug.print("source len: {d}\n", .{source.len});
-            std.debug.print("group index: {d}\n", .{group_index});
             const start = group_index * 4;
             const end = @min(source.len, start + 4);
-            std.debug.print("start: {d}\n", .{start});
-            std.debug.print("end: {d}\n", .{end});
             const group_slice = source[start..end];
-            std.debug.print("group slice: {any}\n", .{group_slice});
 
             // NOTE: 여기서는 길이 3을 써야 한다
             const group_decoded = self.decode4Chars(group_slice);

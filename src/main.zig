@@ -13,13 +13,11 @@ pub fn main() !void {
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
     const stdin = &stdin_reader.interface;
     const which_function = try stdin.takeDelimiter('\n');
-    std.debug.print("which function: {any}\n", .{which_function.?});
 
     var source_in_buffer: [1024]u8 = undefined;
     var source_in_reader = std.fs.File.stdin().reader(&source_in_buffer);
     const source_stdin = &source_in_reader.interface;
     const source = try source_stdin.takeDelimiter('\n');
-    std.debug.print("source: {any}\n", .{source.?});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
     const allocator = gpa.allocator();
