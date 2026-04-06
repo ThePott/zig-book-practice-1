@@ -32,6 +32,7 @@ pub fn main() !void {
             @panic("unsupported user input");
         },
     };
+    defer allocator.free(result);
 
     try stdout.print("{s}\n", .{result});
     try stdout.flush();
