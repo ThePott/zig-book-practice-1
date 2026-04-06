@@ -1,229 +1,42 @@
 const std = @import("std");
-
-pub fn countBase64EncodedChars(source: []const u8) !usize {
-    if (source.len < 3) {
-        return 4;
-    }
-
-    const ceil = try std.math.divCeil(usize, source.len, 3);
-    return ceil * 4;
-}
-
-pub fn countBase64DecodedBytes(source: []const u8) !usize {
-    const ceil = try std.math.divCeil(usize, source.len, 4);
-    var valid_length = ceil * 3;
-
-    while (true) {
-        const last_char = source[valid_length - 1];
-        if (last_char != '=') {
-            break;
-        }
-        valid_length -= 1;
-    }
-
-    return valid_length;
-}
-
-const Base64 = struct {
-    table: *const [64]u8,
-
-    pub fn init() Base64 {
-        const uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const lowers = "abcdefghijklmnopqrstuvwxyz";
-        const numbers_symbols = "0123456789+/";
-        return Base64{ .table = uppers ++ lowers ++ numbers_symbols };
-    }
-
-    pub fn charAt(self: Base64, index: u8) u8 {
-        if (index == 64) {
-            return 0;
-        }
-        if (index > 64) {
-            std.debug.print("did not panic, but should. char at unavailiable index :{any}", .{index});
-            return 0;
-        }
-        return self.table[index];
-    }
-
-    pub fn indexOf(self: Base64, char: u8) u8 {
-        var index: u8 = 0;
-        if (char == '=') {
-            return 64;
-        }
-        while (true) {
-            if (self.table[index] == char) {
-                return index;
-            }
-            index += 1;
-
-            if (index >= 64) {
-                std.debug.print("not supported index: {any}", .{index});
-                @panic("could not find index from base64 table");
-            }
-        }
-        return index;
-    }
-
-    // NOTE: need to take heap pointer
-    // NOTE: need to return heap pointer
-    // TODO: how can I force length of 3 ???? <<<<<
-    fn encode3Byptes(self: Base64, source: []const u8) [4]u8 {
-        switch (source.len) {
-            1 => {
-                // NOTE: 굳이 마스킹을 해야 하나?
-                // TODO: 마스킹 하는 게 더 속 편하긴 할 것 같다. 이게 작동하는지 확인한 다음 적용해보자
-                const first = source[0] >> 2;
-                const second = (source[0] & 0b00000011) << 4;
-                std.debug.print("first: {any}\n", .{first});
-                std.debug.print("second: {any}\n", .{second});
-
-                const first_char = self.charAt(first);
-                const second_char = self.charAt(second);
-                const third_char = '=';
-                const fourth_char = '=';
-                return [4]u8{ first_char, second_char, third_char, fourth_char };
-            },
-            2 => {
-                const first = source[0] >> 2;
-                const second = ((source[0] & 0b00000011) << 4) + (source[1] >> 4);
-                const third = (source[1] & 0b00001111) << 2;
-
-                const first_char = self.charAt(first);
-                const second_char = self.charAt(second);
-                const third_char = self.charAt(third);
-                const fourth_char = '=';
-                return [4]u8{ first_char, second_char, third_char, fourth_char };
-            },
-            3 => {
-                const first = source[0] >> 2;
-                const second = ((source[0] & 0b00000011) << 4) + (source[1] >> 4);
-                const third = ((source[1] & 0b00001111) << 2) + (source[2] >> 6);
-                const fourth = (source[2] & 0b00111111);
-
-                const first_char = self.charAt(first);
-                const second_char = self.charAt(second);
-                const third_char = self.charAt(third);
-                const fourth_char = self.charAt(fourth);
-                return [4]u8{ first_char, second_char, third_char, fourth_char };
-            },
-            else => @panic("only length 1 ~ 3 is supported"),
-        }
-    }
-
-    // NOTE: main에서 바로 받을 거니까 compile time known
-    // TODO: user input 받아서 변환하는 걸 만들어보자
-    pub fn encode(self: Base64, allocator: std.mem.Allocator, source: []const u8) ![]u8 {
-        const group_length = try std.math.divCeil(usize, source.len, 3);
-        const encoded_char_count = try countBase64EncodedChars(source);
-        var encoded = try allocator.alloc(u8, encoded_char_count);
-        @memset(encoded, 0);
-        std.debug.print("group_length: {any}\n", .{group_length});
-        std.debug.print("encoded_char_count: {any}\n", .{encoded_char_count});
-        std.debug.print("encoded initialized: {any}\n", .{encoded});
-
-        var group_index: usize = 0;
-        while (group_index < group_length) {
-            std.debug.print("inside encode while loop, encoded: {any}\n", .{encoded});
-            // TODO: how can I fix it to length 3 array
-            const group_slice = if ((group_index * 3 + 3) > source.len) source[group_index * 3 ..] else source[group_index * 3 .. group_index * 3 + 3];
-            const group_encoded = self.encode3Byptes(group_slice);
-            std.debug.print("inside encode while loop, group_slice: {any}\n", .{group_slice});
-            std.debug.print("inside encode while loop, group_encoded_any: {any}\n", .{group_encoded});
-            std.debug.print("inside encode while loop, group_encoded_string: {s}\n", .{group_encoded});
-            std.debug.print("inside encode while loop, group_encoded length: {any}\n", .{group_encoded.len});
-
-            // NOTE: 3 바이트 당 네 글자가 된다
-            @memcpy(encoded[group_index * 4 .. group_index * 4 + group_encoded.len], group_encoded[0..]);
-            std.debug.print("end of while loop cycle, encoded: {any}\n", .{encoded});
-            group_index += 1;
-        }
-
-        std.debug.print("end of while loop, encoded: {any}\n", .{encoded});
-        return encoded;
-    }
-
-    // TODO: how can I force length of 3 ???? <<<<<
-    // NOTE: 어떻게 3글자 이하를 반환하지?? <<<< 한 번 찾아보자 <<<< 0으로 한다.
-    fn decode4Chars(self: Base64, source: []const u8) [3]u8 {
-        var valid_source_length = source.len;
-        while (valid_source_length > 0) {
-            if (source[valid_source_length - 1] != '=') {
-                break;
-            }
-            valid_source_length -= 2;
-        }
-
-        switch (valid_source_length) {
-            2 => {
-                const firstIndex = self.indexOf(source[0]);
-                const secondIndex = self.indexOf(source[1]);
-                const first = (firstIndex << 2) + (secondIndex >> 4);
-                return [3]u8{ first, 0, 0 };
-            },
-            3 => {
-                const firstIndex = self.indexOf(source[0]);
-                const secondIndex = self.indexOf(source[1]);
-                const thirdIndex = self.indexOf(source[2]);
-                const first = (firstIndex << 2) + (secondIndex >> 4);
-                const second = ((secondIndex & 0b00001111) << 4) + (thirdIndex >> 2);
-                return [3]u8{ first, second, 0 };
-            },
-            4 => {
-                const firstIndex = self.indexOf(source[0]);
-                const secondIndex = self.indexOf(source[1]);
-                const thirdIndex = self.indexOf(source[2]);
-                const fourthIndex = self.indexOf(source[3]);
-                const first = (firstIndex << 2) + (secondIndex >> 4);
-                const second = ((secondIndex & 0b00001111) << 4) + (thirdIndex >> 2);
-                const third = ((thirdIndex & 0b00000011) << 6) + fourthIndex;
-                return [3]u8{ first, second, third };
-            },
-            else => {
-                std.debug.print("unsupported source length: {any}", .{source});
-                @panic("not supported valid source length");
-            },
-        }
-
-        // const first_index = self.table.
-    }
-
-    pub fn decode(self: Base64, allocator: std.mem.Allocator, source: []const u8) ![]u8 {
-        const decoded_length = try countBase64DecodedBytes(source);
-        const decoded = try allocator.alloc(u8, decoded_length);
-        @memset(decoded, 0);
-
-        const group_length = try std.math.divCeil(usize, source.len, 4);
-        var group_index: usize = 0;
-        while (group_index < group_length) {
-            std.debug.print("decoded: {any}\n", .{decoded});
-            std.debug.print("source len: {d}\n", .{source.len});
-            std.debug.print("group index: {d}\n", .{group_index});
-            const start = group_index * 4;
-            const end = @min(source.len, start + 4);
-            std.debug.print("start: {d}\n", .{start});
-            std.debug.print("end: {d}\n", .{end});
-            const group_slice = source[start..end];
-            std.debug.print("group slice: {any}\n", .{group_slice});
-
-            // NOTE: 여기서는 길이 3을 써야 한다
-            const group_decoded = self.decode4Chars(group_slice);
-            @memcpy(decoded[group_index * 3 .. group_index * 3 + group_decoded.len], group_decoded[0..]);
-            group_index += 1;
-        }
-
-        return decoded;
-    }
-};
+const Base64 = @import("base64/index.zig").Base64;
 
 pub fn main() !void {
-    // const base64 = Base64.init();
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-    // const allocator = gpa.allocator();
-    // const some_string = "ab";
-    // const encoded = try base64.encode(allocator, some_string);
-    // defer allocator.free(encoded);
-    // std.debug.print("encoded_any: {any}\n", .{encoded});
-    // std.debug.print("encoded_string: {s}\n", .{encoded});
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    try stdout.print("1. encode\n2. decode\n", .{});
+    try stdout.flush();
+
+    var stdin_buffer: [1024]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    const stdin = &stdin_reader.interface;
+    const which_function = try stdin.takeDelimiter('\n');
+    std.debug.print("which function: {any}\n", .{which_function.?});
+
+    var source_in_buffer: [1024]u8 = undefined;
+    var source_in_reader = std.fs.File.stdin().reader(&source_in_buffer);
+    const source_stdin = &source_in_reader.interface;
+    const source = try source_stdin.takeDelimiter('\n');
+    std.debug.print("source: {any}\n", .{source.?});
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    const allocator = gpa.allocator();
+
+    const base64 = Base64.init();
+    const result: []u8 = switch (which_function.?[0]) {
+        '1' => try base64.encode(allocator, source.?),
+        '2' => try base64.decode(allocator, source.?),
+        else => {
+            std.debug.print("whole input: {any}\n", .{which_function});
+            std.debug.print("first input: {any}\n", .{which_function.?[0]});
+            @panic("unsupported user input");
+        },
+    };
+
+    try stdout.print("{s}\n", .{result});
+    try stdout.flush();
 }
 
 test "testing decoding 4 chars" {
